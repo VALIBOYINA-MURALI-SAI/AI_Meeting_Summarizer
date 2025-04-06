@@ -2,141 +2,131 @@ import os
 import sys
 import time
 import threading
-import signal
 import subprocess
-
-import ffmpeg
-import openai
-import tiktoken
 import torch
 import whisper
+import ffmpeg
+import sounddevice as sd
+from scipy.io.wavfile import write
 from dotenv import load_dotenv
+from offline_summarizer import summarize_text_offline
+from action_item_generator import extract_action_items
+
+
+print("\U0001f50d [INFO] Loading .env file...")
+loaded = load_dotenv()
+print(f"✅ [INFO] .env loaded: {loaded}")
 
 whisper_model = "base"
-command_prompt = "Create clear and concise unlabelled bullet points summarizing key information"
-
-stop_ticker = False
-
+stop_ticker = True
 
 def display_ticker():
     start_time = time.time()
     while not stop_ticker:
         elapsed_time = time.time() - start_time
         minutes, seconds = divmod(int(elapsed_time), 60)
-        sys.stdout.write(f'\rRecording: {minutes:02d}:{seconds:02d}')
+        sys.stdout.write(f'\r🎙️ [INFO] Recording: {minutes:02d}:{seconds:02d}')
         sys.stdout.flush()
         time.sleep(1)
 
-
 def record_meeting(output_filename):
+    global stop_ticker
+    stop_ticker = False
+    ticker_thread = threading.Thread(target=display_ticker)
+    ticker_thread.start()
+
     try:
-
-        global stop_ticker
-
-        # Start the moving ticker
-        stop_ticker = False
-        ticker_thread = threading.Thread(target=display_ticker)
-        ticker_thread.start()
-
-        # The command to record audio using FFmpeg on macOS
-        stream = (
-            ffmpeg
-            .input(":0", f="avfoundation", video_size=None)  # Use 'default'
-            .output(output_filename, acodec="libmp3lame", format="mp3")  # Specify the output format as 'mp3'
-            .overwrite_output()
-        )
-
-        # Start the FFmpeg process
-        process = ffmpeg.run_async(stream, pipe_stdin=True, pipe_stderr=True)
-
-        # Wait for the process to finish or be interrupted
-        while process.poll() is None:
-            time.sleep(1)
-
-    except KeyboardInterrupt:
+        duration = 3600  # Set maximum recording duration (1 hour)
+        fs = 44100  # Sample rate
+        print("\n🎥 [INFO] Recording started. Press Ctrl+C to stop.")
+        recording = sd.rec(int(duration * fs), samplerate=fs, channels=1)
+        sd.wait()
 
         stop_ticker = True
         ticker_thread.join()
 
-        try:
-            process.wait(timeout=5)
-        except subprocess.TimeoutExpired:
-            os.killpg(os.getpgid(process.pid), signal.SIGTERM)
-            process.wait()
+        write(output_filename, fs, recording)
+        print("✅ [INFO] Recording stopped and saved.")
 
-        print("Recording stopped.")
+    except KeyboardInterrupt:
+        stop_ticker = True
+        ticker_thread.join()
+        print("\n🛑 [INFO] Recording manually stopped.")
+        write(output_filename, fs, recording[:int(time.time() * fs)])
+        print("✅ [INFO] Partial recording saved.")
+
     except Exception as e:
-        print(e)
-
+        stop_ticker = True
+        ticker_thread.join()
+        print(f"❌ [ERROR] Error during recording: {e}")
 
 def transcribe_audio(filename):
-
-    # load model
-    devices = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    model = whisper.load_model(whisper_model, device=devices)
-
-    # load audio and pad/trim it to fit 30 seconds
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    model = whisper.load_model(whisper_model, device=device)
     audio = whisper.load_audio(filename)
 
-    print("Beginning Transcribing Process...")
-
+    print("📝 [INFO] Beginning transcription...")
     result = model.transcribe(audio, verbose=False, fp16=False, task="translate")
-
     return result['text']
 
-
 def summarize_transcript(transcript):
+    return summarize_text_offline(transcript)
 
-    def generate_summary(prompt):
-        response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {"role": "system", "content": "You are a helpful assistant that summarizes text to small paragraphs"},
-                {"role": "user", "content": f"{command_prompt}: {prompt}"}
-            ],
-            temperature=0.5,
-        )
-        return response.choices[0].message['content'].strip()
+def save_results_to_file(transcript, summary, action_items, output_path="meeting_summary.txt"):
+    with open(output_path, "w", encoding="utf-8") as f:
+        f.write("🔊 TRANSCRIPT:\n")
+        f.write(transcript + "\n\n")
 
-    chunks = []
-    prompt = "Please summarize the following text:\n\n"
-    text = prompt + transcript
-    tokenizer = tiktoken.get_encoding("cl100k_base")
-    tokens = tokenizer.encode(text)
-    while tokens:
-        chunk_tokens = tokens[:2000]
-        chunk_text = tokenizer.decode(chunk_tokens)
-        chunks.append(chunk_text)
-        tokens = tokens[2000:]
+        f.write("📝 SUMMARY_START:\n")
+        f.write(summary + "\n")
+        f.write("📝 SUMMARY_END\n\n")
 
-    summary = "\n".join([generate_summary(chunk) for chunk in chunks])
+        f.write("✅ ACTION_ITEMS_START:\n")
+        for item in action_items:
+            f.write(f"- {item}\n")
+        f.write("✅ ACTION_ITEMS_END\n")
 
-    return summary
-
+    print(f"\n💾 [INFO] Results saved to {output_path}")
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:
-        print(f"Usage: python {sys.argv[0]} [record|summarize] output.mp3")
+        print(f"⚠️ [USAGE] python {sys.argv[0]} [record|summarize] output.wav")
         sys.exit(1)
-
-    load_dotenv()
-    api_key = os.getenv('OPEN_API_KEY')
-    if api_key is None:
-        print("Environment variable OPEN_API_KEY not found. Exiting...")
-        sys.exit(1)
-
-    openai.api_key = api_key
 
     action = sys.argv[1]
     output_filename = sys.argv[2]
 
     if action == "record":
         record_meeting(output_filename)
+
     elif action == "summarize":
         transcript = transcribe_audio(output_filename)
         summary = summarize_transcript(transcript)
-        print(f"TRANSCRIPT:{transcript}\n")
-        print(f"SUMMARY_START:\n{summary}\nSUMMARY_END\n")
+        action_items = extract_action_items(summary)
+
+        for line in transcript.strip().splitlines():
+            print(f"TRANSCRIPT: {line}")
+
+        print("SUMMARY_START")
+        print(summary)
+        print("SUMMARY_END")
+
+
+        print("ACTION_ITEMS_START")
+        for item in action_items:
+            print(f"- {item}")
+        print("ACTION_ITEMS_END")
+
+
+        save_results_to_file(transcript, summary, action_items)
+    elif action == "transcribe":
+        print("[INFO] Transcribing only...")
+        transcript = transcribe_audio(output_filename)
+        with open("transcript.txt", "w", encoding="utf-8") as f:
+            f.write(transcript)
+        print("[INFO] Transcription complete and saved to transcript.txt")
+
+
     else:
-        print(f"Invalid action. Usage: python {sys.argv[0]} [record|summarize] output.mp3")
+        print(f"⚠️ [ERROR] Invalid action. Usage: python {sys.argv[0]} [record|summarize] output.wav")
         sys.exit(1)

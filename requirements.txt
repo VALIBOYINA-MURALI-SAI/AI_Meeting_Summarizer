@@ -1,7 +1,8 @@
-PyQt5
-ffmpeg-python
-transformers
-nltk
-openai-whisper
-torch
-python-dotenv
+PyQt5==5.15.4
+pyqtgraph==0.12.3
+torch==1.9.0
+whisper==1.1.0
+transformers==4.5.1
+scipy==1.6.0
+sounddevice==0.4.1
+nltk==3.6.3

@@ -30,6 +30,12 @@ class MeetingSummarizer(QMainWindow):
         self.setWindowTitle("Meeting Summarizer")
         self.setFixedSize(800, 600)
         
+        # Core Data
+        self.output_filename = ""
+        self.transcript = ""
+        self.summary = ""
+        self.action_items = []
+
         # Benchmarking variables
         self.transcription_time = 0
         self.summarization_time = 0

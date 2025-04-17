@@ -6,6 +6,8 @@ import subprocess
 import torch
 import whisper
 import ffmpeg
+import queue
+import numpy as np
 import sounddevice as sd
 from scipy.io.wavfile import write
 from dotenv import load_dotenv
@@ -35,30 +37,39 @@ def record_meeting(output_filename):
     ticker_thread = threading.Thread(target=display_ticker)
     ticker_thread.start()
 
+    fs = 44100  # Sample rate
+    channels = 1
+    q = queue.Queue()
+
+    def callback(indata, frames, time_info, status):
+        if status:
+            print(f"⚠️ [WARNING] {status}", file=sys.stderr)
+        q.put(indata.copy())
+
     try:
-        duration = 3600  # Set maximum recording duration (1 hour)
-        fs = 44100  # Sample rate
         print("\n🎥 [INFO] Recording started. Press Ctrl+C to stop.")
-        recording = sd.rec(int(duration * fs), samplerate=fs, channels=1)
-        sd.wait()
-
-        stop_ticker = True
-        ticker_thread.join()
-
-        write(output_filename, fs, recording)
-        print("✅ [INFO] Recording stopped and saved.")
-
+        with sd.InputStream(samplerate=fs, channels=channels, callback=callback):
+            recorded_frames = []
+            while True:
+                try:
+                    frame = q.get(timeout=1)
+                    recorded_frames.append(frame)
+                except queue.Empty:
+                    continue
     except KeyboardInterrupt:
-        stop_ticker = True
-        ticker_thread.join()
         print("\n🛑 [INFO] Recording manually stopped.")
-        write(output_filename, fs, recording[:int(time.time() * fs)])
-        print("✅ [INFO] Partial recording saved.")
-
     except Exception as e:
+        print(f"❌ [ERROR] Recording error: {e}")
+    finally:
         stop_ticker = True
         ticker_thread.join()
-        print(f"❌ [ERROR] Error during recording: {e}")
+
+        if recorded_frames:
+            audio_data = np.concatenate(recorded_frames, axis=0)
+            write(output_filename, fs, audio_data)
+            print(f"✅ [INFO] Recording saved to {output_filename}")
+        else:
+            print("⚠️ [WARNING] No audio recorded.")
 
 def transcribe_audio(filename):
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")

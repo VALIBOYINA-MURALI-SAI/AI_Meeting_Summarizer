@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<h2 class="text-center">Welcome, {{ username }}!</h2>
+<div class="text-center mb-4">
+    <a href="{{ url_for('logout') }}" class="btn btn-outline-light">Logout</a>
+</div>
+
+<div class="card bg-dark text-white mb-4 p-4">
+    <h3>Save a New Summary</h3>
+    <form method="POST" action="{{ url_for('save_summary') }}">
+        <div class="mb-3">
+            <label>Meeting Title:</label>
+            <input type="text" name="title" class="form-control bg-dark text-white" required>
+        </div>
+        <div class="mb-3">
+            <label>Summary:</label>
+            <textarea name="summary" rows="4" class="form-control bg-dark text-white" required></textarea>
+        </div>
+        <div class="mb-3">
+            <label>Action Items:</label>
+            <textarea name="action_items" rows="3" class="form-control bg-dark text-white"></textarea>
+        </div>
+        <button type="submit" class="btn btn-danger">Save Summary</button>
+    </form>
+</div>
+
+<div class="card bg-dark text-white mb-4 p-4">
+    <h3>Upload Meeting Audio</h3>
+    <form method="POST" action="{{ url_for('upload_audio') }}" enctype="multipart/form-data">
+        {{ form.hidden_tag() }}
+        <div class="mb-3">
+            {{ form.audio_file.label }}
+            {{ form.audio_file(class="form-control bg-dark text-white") }}
+        </div>
+        {{ form.submit(class="btn btn-danger") }}
+    </form>
+</div>
+
+<hr class="text-light">
+
+<h3 class="text-center text-danger">Your Saved Summaries</h3>
+{% for s in summaries %}
+    <div class="summary-card">
+        <h4>{{ s.title }} <small class="text-muted">({{ s.timestamp.strftime('%Y-%m-%d %H:%M') }})</small></h4>
+        <p><strong>Summary:</strong> {{ s.summary }}</p>
+        <p><strong>Action Items:</strong></p>
+        <ul>
+            {% for item in s.action_items %}
+                <li>{{ item }}</li>
+            {% endfor %}
+        </ul>
+        <hr>
+    </div>
+{% else %}
+    <p class="text-light text-center">No summaries yet!</p>
+{% endfor %}
+{% endblock %}

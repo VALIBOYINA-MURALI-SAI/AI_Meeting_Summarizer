@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{% block title %}Meeting App{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+
+    <!-- Header -->
+    <header class="navbar navbar-dark bg-dark px-4 py-2">
+        <a class="navbar-brand" href="#">
+            <img src="{{ url_for('static', filename='logo.png') }}" height="30" alt="Logo">
+            Meeting Summarizer
+        </a>
+    </header>
+
+    <!-- Main Content -->
+    <main class="container mt-4">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <!-- Footer -->
+    <footer class="bg-dark text-light text-center py-4 mt-5">
+        <div class="container">
+            <p class="mb-1"><strong>Contact:</strong> VALIBOYINA MURALI SAI</p>
+            <p class="mb-1">Email: <a href="mailto:mv8039@srmist.edu.in" class="text-light">mv8039@srmist.edu.in</a></p>
+            <p class="mb-1">LinkedIn: <a href="https://linkedin.com/in/valiboyina-murali-sai-ba5689250" target="_blank" class="text-light">linkedin.com/in/valiboyina-murali-sai</a></p>
+            <p class="mb-3">GitHub: <a href="https://github.com/VALIBOYINA-MURALI-SAI" target="_blank" class="text-light">github.com/VALIBOYINA-MURALI-SAI</a></p>
+            <hr class="bg-light">
+            <p class="mb-0">&copy; 2025 Meeting Summarizer. All rights reserved.</p>
+        </div>
+    </footer>
+
+
+</body>
+</html>

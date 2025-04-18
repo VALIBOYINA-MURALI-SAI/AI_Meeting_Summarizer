@@ -6,6 +6,24 @@
     <a href="{{ url_for('logout') }}" class="btn btn-outline-light">Logout</a>
 </div>
 
+<!-- 🛑 Start / 🎙️ Stop Recording Buttons -->
+<div class="text-center my-4">
+    <div class="btn-group" role="group" aria-label="Recording Controls">
+        <!-- ✅ START Recording Button -->
+        <form method="POST" action="{{ url_for('start_recording') }}">
+            {{ form.hidden_tag() }}  <!-- This includes CSRF token -->
+            <button type="submit" class="btn btn-success">Start Recording</button>
+        </form>
+
+        <!-- ✅ STOP Recording Button -->
+        <form method="POST" action="{{ url_for('stop_recording') }}">
+            {{ form.hidden_tag() }}  <!-- This includes CSRF token -->
+            <button type="submit" class="btn btn-danger">Stop Recording</button>
+        </form>
+    </div>
+</div>
+
+<!-- 💾 Save Summary Form 
 <div class="card bg-dark text-white mb-4 p-4">
     <h3>Save a New Summary</h3>
     <form method="POST" action="{{ url_for('save_summary') }}">
@@ -22,9 +40,10 @@
             <textarea name="action_items" rows="3" class="form-control bg-dark text-white"></textarea>
         </div>
         <button type="submit" class="btn btn-danger">Save Summary</button>
-    </form>
-</div>
+    </form>    
+</div> -->
 
+<!-- 🔊 Upload Audio Section -->
 <div class="card bg-dark text-white mb-4 p-4">
     <h3>Upload Meeting Audio</h3>
     <form method="POST" action="{{ url_for('upload_audio') }}" enctype="multipart/form-data">
@@ -37,16 +56,46 @@
     </form>
 </div>
 
+<!-- Modal -->
+<div class="modal fade" id="editModal" tabindex="-1">
+    <div class="modal-dialog">
+        <form method="POST" action="{{ url_for('edit_summary') }}">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5>Edit Summary</h5>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" name="summary_id" id="editSummaryId">
+                    <textarea name="summary_text" id="editSummaryText" class="form-control" rows="5"></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="btn btn-primary">Save</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+  
+<script>
+  function editSummary(id) {
+    const summaries = {{ summaries|tojson }};
+    const item = summaries.find(s => s._id.$oid === id);
+    document.getElementById("editSummaryId").value = id;
+    document.getElementById("editSummaryText").value = item.summary;
+    new bootstrap.Modal(document.getElementById("editModal")).show();
+  }
+</script>
+
 <hr class="text-light">
 
 <h3 class="text-center text-danger">Your Saved Summaries</h3>
 {% for s in summaries %}
     <div class="summary-card">
-        <h4>{{ s.title }} <small class="text-muted">({{ s.timestamp.strftime('%Y-%m-%d %H:%M') }})</small></h4>
-        <p><strong>Summary:</strong> {{ s.summary }}</p>
+        <h4>{{ s["title"] }} <small class="text-muted">({{ s["timestamp"] }})</small></h4>
+        <p><strong>Summary:</strong> {{ s["summary"] }}</p>
         <p><strong>Action Items:</strong></p>
         <ul>
-            {% for item in s.action_items %}
+            {% for item in s["action_items"] %}
                 <li>{{ item }}</li>
             {% endfor %}
         </ul>

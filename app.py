@@ -12,6 +12,9 @@ import subprocess
 from cli import transcribe_audio, summarize_transcript, save_results_to_file
 # app.py
 from action_item_generator import extract_action_items  # Add this line to import the function
+from recording_manager import RecordingManager
+
+recorder = RecordingManager()
 
 
 app = Flask(__name__)
@@ -38,6 +41,7 @@ def login():
         if user is not None:
             if 'password' in user and check_password_hash(user['password'], password):
                 session['user_id'] = str(user['_id'])
+                session['username'] = user['username']
                 return redirect(url_for('dashboard'))
             else:
                 flash('Invalid username or password.', 'danger')
@@ -71,22 +75,30 @@ def logout():
 
 @app.route('/save_summary', methods=['POST'])
 def save_summary():
-    if 'user_id' not in session:
+    if 'username' not in session:
         return redirect(url_for('login'))
 
-    title = request.form['title']
-    summary = request.form['summary']
-    action_items = request.form['action_items'].split('\n')
+    title = request.form.get('title')
+    summary = request.form.get('summary')
+    action_items = request.form.get('action_items', '')
 
-    mongo.db.summaries.insert_one({
-        'user_id': ObjectId(session['user_id']),
-        'title': title,
-        'summary': summary,
-        'action_items': action_items,
-        'timestamp': datetime.utcnow()
-    })
+    if not title or not summary:
+        return "Missing title or summary", 400
 
+    action_items_list = [item.strip() for item in action_items.split('\n') if item.strip()]
+
+    new_entry = {
+        "user_id": ObjectId(session['user_id']),
+        "username": session['username'],
+        "title": title,
+        "summary": summary,
+        "action_items": action_items_list,
+        "timestamp": datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    }
+
+    mongo.db.summaries.insert_one(new_entry)
     return redirect(url_for('dashboard'))
+
 
 @app.route('/dashboard', methods=['GET', 'POST'])
 def dashboard():
@@ -96,8 +108,60 @@ def dashboard():
     form = UploadForm()
     user = mongo.db.users.find_one({'_id': ObjectId(session['user_id'])})
     summaries = list(mongo.db.summaries.find({'user_id': ObjectId(session['user_id'])}))
-    
+
+    # 🔥 Convert ObjectId to string
+    for summary in summaries:
+        summary['_id'] = str(summary['_id'])
+        summary['user_id'] = str(summary['user_id'])
+
     return render_template('dashboard.html', username=user['username'], summaries=summaries, form=form)
+
+
+@app.route('/start_recording', methods=["GET", 'POST'])
+def start_recording():
+    if not os.path.exists('uploads'):
+        os.makedirs('uploads')
+
+    filename = f"uploads/meeting_{datetime.now().strftime('%Y%m%d_%H%M%S')}.wav"
+    session['recording_file'] = filename
+    global recorder
+    recorder.output_filename = filename
+    recorder.start_recording()
+
+    flash("🎙️ Recording started!", "info")
+    return redirect(url_for('dashboard'))
+
+
+@app.route('/stop_recording', methods=["GET", 'POST'])
+def stop_recording():
+    filename = session.get('recording_file')
+    if not filename:
+        flash("⚠️ No recording session found.", "danger")
+        return redirect(url_for('dashboard'))
+
+    global recorder
+    recorder.stop_recording()
+
+    if not os.path.exists(filename):
+        flash("⚠️ No recording found to stop.", "danger")
+        return redirect(url_for('dashboard'))
+
+    transcript = transcribe_audio(filename)
+    summary = summarize_transcript(transcript)
+    action_items = extract_action_items(summary)
+
+    mongo.db.summaries.insert_one({
+        'user_id': ObjectId(session['user_id']),
+        'username': session['username'],
+        'title': f"Recorded Meeting on {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')}",
+        'summary': summary,
+        'action_items': action_items,
+        'transcript': transcript,
+        'timestamp': datetime.utcnow()
+    })
+
+    flash("✅ Recording stopped and summary saved.", "success")
+    return redirect(url_for('dashboard'))
 
 
 @app.route('/upload_audio', methods=['POST'])
@@ -121,13 +185,40 @@ def upload_audio():
 
     mongo.db.summaries.insert_one({
         'user_id': ObjectId(session['user_id']),
+        'username': session['username'],
         'title': f"Meeting on {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')}",
         'summary': summary,
         'action_items': action_items,
+        'transcript': transcript,
         'timestamp': datetime.utcnow()
     })
 
-    return jsonify({'summary': summary, 'action_items': action_items})
+    flash("📝 Transcription and summary added successfully.", "success")
+    return redirect(url_for('dashboard'))  # ← redirect instead of jsonify
+
+@app.route("/summaries")
+def my_summaries():
+    user_id = ObjectId(session['user_id'])
+    summaries = list(mongo.db.summaries.find({'user_id': user_id}))
+    return render_template("my_summaries.html", summaries=summaries)
+
+@app.route("/delete_summary/<summary_id>")
+def delete_summary(summary_id):
+    mongo.db.summaries.delete_one({"_id": ObjectId(summary_id)})
+    flash("🗑️ Summary deleted successfully!", "success")
+    return redirect(url_for("my_summaries"))
+
+@app.route("/edit_summary", methods=["POST"])
+def edit_summary():
+    summary_id = request.form['summary_id']
+    updated_text = request.form['summary_text']
+    mongo.db.summaries.update_one(
+        {"_id": ObjectId(summary_id)},
+        {"$set": {"summary": updated_text}}
+    )
+    flash("✏️ Summary updated successfully!", "success")
+    return redirect(url_for("my_summaries"))
+
 
 if __name__ == '__main__':
     if not os.path.exists('uploads'):

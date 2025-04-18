@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>📄 My Summaries</h2>
+<div class="row">
+  {% for item in summaries %}
+  <div class="col-md-6">
+    <div class="card mb-3">
+      <div class="card-body">
+        <h5>{{ item.title }}</h5>
+        <p>{{ item.summary[:200] }}...</p>
+        <button class="btn btn-sm btn-warning" onclick="editSummary('{{ item._id }}')">✏️ Edit</button>
+        <a href="{{ url_for('delete_summary', summary_id=item._id) }}" class="btn btn-sm btn-danger">🗑️ Delete</a>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}

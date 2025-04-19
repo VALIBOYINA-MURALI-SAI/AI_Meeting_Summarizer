@@ -12,3 +12,4 @@ Thumbs.db
 *.json
 Hugging_Face.py
 download_punkt.py
+uploads

@@ -9,15 +9,14 @@
 <!-- 🛑 Start / 🎙️ Stop Recording Buttons -->
 <div class="text-center my-4">
     <div class="btn-group" role="group" aria-label="Recording Controls">
-        <!-- ✅ START Recording Button -->
+        <!-- In your recording control forms -->
         <form method="POST" action="{{ url_for('start_recording') }}">
-            {{ form.hidden_tag() }}  <!-- This includes CSRF token -->
+            {{ form.hidden_tag() }}  <!-- This adds the CSRF token -->
             <button type="submit" class="btn btn-success">Start Recording</button>
         </form>
 
-        <!-- ✅ STOP Recording Button -->
         <form method="POST" action="{{ url_for('stop_recording') }}">
-            {{ form.hidden_tag() }}  <!-- This includes CSRF token -->
+            {{ form.hidden_tag() }}  <!-- This adds the CSRF token -->
             <button type="submit" class="btn btn-danger">Stop Recording</button>
         </form>
     </div>

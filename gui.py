@@ -1,4 +1,4 @@
-import sys, os, signal, json, time
+import sys, os, signal, json, time,re
 import matplotlib.pyplot as plt
 import pyqtgraph as pg
 from PyQt5.QtWidgets import (
@@ -152,39 +152,60 @@ class MeetingSummarizer(QMainWindow):
         self.transcription_time = time.time() - start_time
 
     def handle_stdout(self):
-        data = self.process.readAllStandardOutput().data().decode()
-        lines = data.strip().splitlines()
-        summary_flag = False
-        action_flag = False
-        summary_lines = []
-        action_lines = []
+        try:
+            data = self.process.readAllStandardOutput().data().decode('utf-8', errors='ignore')
+            lines = data.strip().splitlines()
+        
+            current_section = None
+            buffer = []
 
-        for line in lines:
-            self.log_edit.append(line)
-            if line.startswith("TRANSCRIPT:"):
-                self.transcript += line[len("TRANSCRIPT:"):].strip() + "\n"
-                self.transcript_edit.setPlainText(self.transcript)
+            for line in lines:
+                # Always log the raw line
+                self.log_edit.append(line)
 
-            elif line.startswith("SUMMARY_START"):
-                summary_flag = True
-            elif line.startswith("SUMMARY_END"):
-                summary_flag = False
-                self.summary = "\n".join(summary_lines)
-                self.summary_edit.setPlainText(self.summary)
-                summary_lines = []
+                # Section detection
+                if line.startswith("===") and line.endswith("==="):
+                    section_name = line.strip("= ").strip()
+                    if section_name.upper() in ["TRANSCRIPT", "SUMMARY", "ACTION ITEMS"]:
+                        current_section = section_name.upper()
+                        buffer = []
+                        continue
 
-            elif line.startswith("ACTION_ITEMS_START"):
-                action_flag = True
-            elif line.startswith("ACTION_ITEMS_END"):
-                action_flag = False
-                self.action_items = action_lines[:]
-                self.action_edit.setPlainText("\n".join(self.action_items))  # 🆕 update GUI
-                action_lines = []
+                # Section content handling
+                if current_section == "TRANSCRIPT":
+                    if line.startswith("TRANSCRIPT:"):
+                        content = line[len("TRANSCRIPT:"):].strip()
+                    else:
+                        content = line.strip()
+                
+                    if content:
+                        self.transcript += content + "\n"
+                        self.transcript_edit.setPlainText(self.transcript)
 
-            elif summary_flag:
-                summary_lines.append(line)
-            elif action_flag:
-                action_lines.append(line)
+                elif current_section == "SUMMARY":
+                    if line == "SUMMARY_START":
+                        self.summary_edit.clear()
+                    elif line == "SUMMARY_END":
+                        self.summary_edit.setPlainText("\n".join(buffer))
+                        buffer = []
+                    elif line not in ["SUMMARY_START", "SUMMARY_END"]:
+                        buffer.append(line.strip())
+
+                elif current_section == "ACTION ITEMS":
+                    if line == "ACTION_ITEMS_START":
+                        self.action_edit.clear()
+                    elif line == "ACTION_ITEMS_END":
+                        self.action_edit.setPlainText("\n".join(buffer))
+                        buffer = []
+                    elif line not in ["ACTION_ITEMS_START", "ACTION_ITEMS_END"]:
+                        # Format action items with consistent numbering
+                        if re.match(r'^\d+[.)]\s', line.strip()):
+                            buffer.append(line.strip())
+                        elif line.strip():
+                            buffer.append(f"• {line.strip()}")
+
+        except Exception as e:
+            self.log_edit.append(f"⚠️ Error in output handling: {str(e)}")
 
         # Benchmark for summarization
         start_time = time.time()

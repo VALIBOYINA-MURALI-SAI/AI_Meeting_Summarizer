@@ -217,6 +217,7 @@ def delete_summary(summary_id):
     flash("🗑️ Summary deleted successfully!", "success")
     return redirect(url_for('dashboard'))
 
+
 if __name__ == '__main__':
     if not os.path.exists('uploads'):
         os.makedirs('uploads')

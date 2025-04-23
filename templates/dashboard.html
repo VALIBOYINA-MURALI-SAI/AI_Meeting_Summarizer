@@ -1,106 +1,1014 @@
 {% extends "base.html" %}
 {% block title %}Dashboard{% endblock %}
+
 {% block content %}
-<h2 class="text-center">Welcome, {{ username }}!</h2>
-<div class="text-center mb-4">
-    <a href="{{ url_for('logout') }}" class="btn btn-outline-light">Logout</a>
-</div>
-
-<!-- 🛑 Start / 🎙️ Stop Recording Buttons -->
-<div class="text-center my-4">
-    <div class="btn-group" role="group" aria-label="Recording Controls">
-        <!-- In your recording control forms -->
-        <form method="POST" action="{{ url_for('start_recording') }}">
-            {{ form.hidden_tag() }}  <!-- This adds the CSRF token -->
-            <button type="submit" class="btn btn-success">Start Recording</button>
-        </form>
-
-        <form method="POST" action="{{ url_for('stop_recording') }}">
-            {{ form.hidden_tag() }}  <!-- This adds the CSRF token -->
-            <button type="submit" class="btn btn-danger">Stop Recording</button>
-        </form>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+<div class="dashboard-container">
+    <!-- Mobile Navigation Toggle -->
+    <div class="mobile-nav-toggle">
+        <button id="menuToggle">
+            <i class="fas fa-bars"></i>
+        </button>
     </div>
-</div>
 
-<!-- 💾 Save Summary Form 
-<div class="card bg-dark text-white mb-4 p-4">
-    <h3>Save a New Summary</h3>
-    <form method="POST" action="{{ url_for('save_summary') }}">
-        <div class="mb-3">
-            <label>Meeting Title:</label>
-            <input type="text" name="title" class="form-control bg-dark text-white" required>
+    <!-- Sidebar -->
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="brand-logo">
+                <i class="fas fa-comments text-primary fa-2x"></i>
+                <h3 class="logo-text">Meeting Hub</h3>
+            </div>
+            <button class="close-sidebar" id="closeSidebar">
+                <i class="fas fa-times"></i>
+            </button>
         </div>
-        <div class="mb-3">
-            <label>Summary:</label>
-            <textarea name="summary" rows="4" class="form-control bg-dark text-white" required></textarea>
-        </div>
-        <div class="mb-3">
-            <label>Action Items:</label>
-            <textarea name="action_items" rows="3" class="form-control bg-dark text-white"></textarea>
-        </div>
-        <button type="submit" class="btn btn-danger">Save Summary</button>
-    </form>    
-</div> -->
+        
+        <nav class="nav-menu">
+            <a class="nav-link active" href="#recording">
+                <i class="fas fa-microphone"></i>
+                <span class="nav-text">Recording</span>
+                <div class="nav-indicator"></div>
+            </a>
+            <a class="nav-link" href="#summarization">
+                <i class="fas fa-file-alt"></i>
+                <span class="nav-text">Summarization</span>
+                <div class="nav-indicator"></div>
+            </a>
+            <a class="nav-link" href="#previous">
+                <i class="fas fa-history"></i>
+                <span class="nav-text">Previous Summaries</span>
+                <div class="nav-indicator"></div>
+            </a>
+            <a class="nav-link logout-link" href="{{ url_for('logout') }}">
+                <i class="fas fa-sign-out-alt"></i>
+                <span class="nav-text">Logout</span>
+            </a>
+        </nav>
 
-<!-- 🔊 Upload Audio Section -->
-<div class="card bg-dark text-white mb-4 p-4">
-    <h3>Upload Meeting Audio</h3>
-    <form method="POST" action="{{ url_for('upload_audio') }}" enctype="multipart/form-data">
-        {{ form.hidden_tag() }}
-        <div class="mb-3">
-            {{ form.audio_file.label }}
-            {{ form.audio_file(class="form-control bg-dark text-white") }}
+        <!-- User profile moved with more spacing -->
+        <div class="user-profile">
+            <div class="avatar">{{ username[0].upper() }}</div>
+            <div class="user-info">
+                <h6 class="user-name">{{ username }}</h6>
+                <small class="user-status">Active Now</small>
+            </div>
         </div>
-        {{ form.submit(class="btn btn-danger") }}
-    </form>
-</div>
+    </div>
 
-<!-- Modal -->
-<div class="modal fade" id="editModal" tabindex="-1">
-    <div class="modal-dialog">
-        <form method="POST" action="{{ url_for('edit_summary') }}">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5>Edit Summary</h5>
+    <!-- Main Content -->
+    <div class="main-content">
+        <!-- Header -->
+        <header class="content-header">
+            <div class="greeting-card">
+                <div class="greeting-text">
+                    <h2>Welcome back, {{ username }}! 👋</h2>
+                    <p class="greeting-subtitle">Let's capture your meeting insights</p>
                 </div>
-                <div class="modal-body">
-                    <input type="hidden" name="summary_id" id="editSummaryId">
-                    <textarea name="summary_text" id="editSummaryText" class="form-control" rows="5"></textarea>
-                </div>
-                <div class="modal-footer">
-                    <button type="submit" class="btn btn-primary">Save</button>
+                <div class="stats-container">
+                    <div class="stat-card purple">
+                        <div class="stat-icon">
+                            <i class="fas fa-microphone-alt"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3 class="stat-number">{{ summaries|length }}</h3>
+                            <p class="stat-label">Total Recordings</p>
+                        </div>
+                    </div>
+                    <div class="stat-card blue">
+                        <div class="stat-icon">
+                            <i class="fas fa-clock"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3 class="stat-number">{{ recent_summaries|length }}</h3>
+                            <p class="stat-label">Recent Sessions</p>
+                        </div>
+                    </div>
                 </div>
             </div>
-        </form>
+        </header>
+
+        <!-- Content Sections -->
+        <div class="content-sections">
+            <!-- Recording Section -->
+            <section id="recording" class="content-section">
+                <div class="section-card">
+                    <div class="section-header">
+                        <h3><i class="fas fa-microphone"></i> Recording Controls</h3>
+                    </div>
+                    <div class="section-body">
+                        <div class="control-buttons">
+                            <form method="POST" action="{{ url_for('start_recording') }}">
+                                {{ form.hidden_tag() }}
+                                <button type="submit" class="btn-control start">
+                                    <i class="fas fa-play"></i> Start Recording
+                                </button>
+                            </form>
+                            <form method="POST" action="{{ url_for('stop_recording') }}">
+                                {{ form.hidden_tag() }}
+                                <button type="submit" class="btn-control stop">
+                                    <i class="fas fa-stop"></i> Stop Recording
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Upload Section -->
+            <section id="summarization" class="content-section">
+                <div class="section-card">
+                    <div class="section-header">
+                        <h3><i class="fas fa-upload"></i> Upload & Summarize Audio</h3>
+                    </div>
+                    <div class="section-body">
+                        <form method="POST" action="{{ url_for('upload_audio') }}" enctype="multipart/form-data" class="upload-form">
+                            {{ form.hidden_tag() }}
+                            <div class="form-group">
+                                <label class="form-label">{{ form.audio_file.label }}</label>
+                                {{ form.audio_file(class="form-input") }}
+                            </div>
+                            {{ form.submit(class="btn-submit") }}
+                        </form>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Previous Summaries Section -->
+            <section id="previous" class="content-section">
+                <h3 class="section-title"><i class="fas fa-history"></i> Your Saved Summaries</h3>
+                <div class="summaries-grid">
+                    {% for s in summaries %}
+                    <div class="summary-card">
+                        <div class="summary-header">
+                            <h5 class="summary-title">{{ s["title"] }}</h5>
+                            <small class="summary-date">{{ s["timestamp"].strftime('%Y-%m-%d %H:%M') }}</small>
+                        </div>
+                        <div class="summary-body">
+                            <div class="summary-content">
+                                <h6 class="content-label">Summary</h6>
+                                <p class="content-text">{{ s["summary"] }}</p>
+                            </div>
+                            <div class="action-items">
+                                <h6 class="content-label">Action Items</h6>
+                                <ul class="action-list">
+                                    {% for item in s["action_items"] %}
+                                    <li class="action-item"><i class="fas fa-check-circle"></i> {{ item }}</li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                        </div>
+                        <div class="summary-footer">
+                            <button class="btn-action edit" onclick="editSummary('{{ s._id }}')">
+                                <i class="fas fa-edit"></i> Edit
+                            </button>
+                            <a href="{{ url_for('delete_summary', summary_id=s._id) }}" class="btn-action delete">
+                                <i class="fas fa-trash"></i> Delete
+                            </a>
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="empty-state">
+                        <i class="fas fa-folder-open"></i>
+                        <p>No summaries yet!</p>
+                    </div>
+                    {% endfor %}
+                </div>
+            </section>
+        </div>
     </div>
 </div>
-  
+
+<style>
+    /* Base Styles & Reset */
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+    }
+
+    body {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+        color: #333;
+        background-color: #f4f7fe;
+        line-height: 1.6;
+    }
+
+    /* Layout Structure */
+    .dashboard-container {
+        display: grid;
+        grid-template-columns: 280px 1fr;
+        min-height: 100vh;
+        position: relative;
+    }
+
+    /* Mobile Nav Toggle Button */
+    .mobile-nav-toggle {
+        position: fixed;
+        top: 1rem;
+        left: 1rem;
+        z-index: 200;
+        display: none;
+    }
+
+    #menuToggle {
+        background: #1a1a2e;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        width: 46px;
+        height: 46px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    #menuToggle i {
+        font-size: 1.25rem;
+    }
+
+    /* Sidebar Styles */
+    .sidebar {
+        background: #1a1a2e;
+        padding: 0;
+        position: fixed;
+        width: 280px;
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+        z-index: 100;
+        overflow-y: auto;
+        transition: transform 0.3s ease;
+    }
+
+    .sidebar-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 1.5rem;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .close-sidebar {
+        display: none;
+        background: transparent;
+        border: none;
+        color: rgba(255, 255, 255, 0.7);
+        cursor: pointer;
+        font-size: 1.25rem;
+    }
+
+    .brand-logo {
+        display: flex;
+        align-items: center;
+    }
+
+    .logo-text {
+        color: #fff;
+        margin-left: 0.75rem;
+        font-size: 1.3rem;
+        font-weight: 600;
+    }
+
+    /* Navigation Menu with better spacing and readability */
+    .nav-menu {
+        display: flex;
+        flex-direction: column;
+        padding: 1.5rem;
+        flex-grow: 1;
+    }
+
+    .nav-link {
+        display: flex;
+        align-items: center;
+        padding: 1rem;
+        margin-bottom: 0.75rem;
+        color: rgba(255, 255, 255, 0.85);
+        border-radius: 8px;
+        text-decoration: none;
+        transition: all 0.2s ease;
+        position: relative;
+        font-weight: 500;
+    }
+
+    .nav-link i {
+        font-size: 1.1rem;
+        margin-right: 1rem;
+        width: 24px;
+        text-align: center;
+    }
+
+    .nav-text {
+        font-size: 1rem;
+        letter-spacing: 0.3px;
+    }
+
+    .nav-link:hover {
+        background: rgba(255, 255, 255, 0.1);
+        color: #fff;
+    }
+
+    .nav-link.active {
+        background: rgba(59, 130, 246, 0.2);
+        color: #fff;
+    }
+
+    .nav-indicator {
+        position: absolute;
+        left: 0;
+        top: 0;
+        height: 100%;
+        width: 4px;
+        background: #3b82f6;
+        transform: scaleY(0);
+        transition: transform 0.2s ease;
+        border-radius: 0 4px 4px 0;
+    }
+
+    .nav-link.active .nav-indicator {
+        transform: scaleY(1);
+    }
+
+    .logout-link {
+        color: rgba(255, 107, 107, 0.9);
+        margin-top: auto;
+    }
+
+    .logout-link:hover {
+        background: rgba(255, 107, 107, 0.15);
+        color: rgb(255, 107, 107);
+    }
+
+    /* User Profile - Fixed positioning at bottom */
+    .user-profile {
+        margin-top: auto;
+        padding: 1.25rem 1.5rem;
+        display: flex;
+        align-items: center;
+        background: rgba(255, 255, 255, 0.05);
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .avatar {
+        width: 42px;
+        height: 42px;
+        background: #3b82f6;
+        color: white;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        margin-right: 1rem;
+        flex-shrink: 0;
+        font-size: 1.1rem;
+    }
+
+    .user-info {
+        overflow: hidden;
+    }
+
+    .user-name {
+        color: #fff;
+        font-weight: 500;
+        font-size: 0.95rem;
+        margin-bottom: 0.25rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .user-status {
+        color: rgba(255, 255, 255, 0.6);
+        font-size: 0.75rem;
+    }
+
+    /* Main Content Area */
+    .main-content {
+        margin-left: 280px;
+        padding: 2rem;
+        width: calc(100vw - 280px);
+    }
+
+    /* Header with Greeting Card */
+    .greeting-card {
+        background: linear-gradient(135deg, #4f46e5 0%, #7e22ce 100%);
+        border-radius: 16px;
+        padding: 2rem;
+        color: white;
+        margin-bottom: 2rem;
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+        box-shadow: 0 10px 25px rgba(79, 70, 229, 0.2);
+    }
+
+    .greeting-text h2 {
+        font-size: 1.75rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+        color: white;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    .greeting-subtitle {
+        color: rgba(255, 255, 255, 0.9);
+        font-size: 1rem;
+        font-weight: 400;
+    }
+
+    /* Stats Container with better contrast */
+    .stats-container {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1.25rem;
+    }
+
+    .stat-card {
+        background: rgba(255, 255, 255, 0.15);
+        backdrop-filter: blur(10px);
+        padding: 1.25rem;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        gap: 1.25rem;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .stat-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
+        background: rgba(255, 255, 255, 0.2);
+    }
+
+    .stat-icon {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 52px;
+        height: 52px;
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.25);
+        flex-shrink: 0;
+    }
+
+    .stat-icon i {
+        font-size: 1.5rem;
+        color: white;
+    }
+
+    .stat-info {
+        flex: 1;
+    }
+
+    .stat-number {
+        font-size: 1.75rem;
+        font-weight: 700;
+        margin-bottom: 0.25rem;
+        color: white;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+    }
+
+    .stat-label {
+        font-size: 0.9rem;
+        color: rgba(255, 255, 255, 0.9);
+        font-weight: 500;
+    }
+
+    .stat-card.purple .stat-icon {
+        background: rgba(147, 51, 234, 0.4);
+    }
+
+    .stat-card.blue .stat-icon {
+        background: rgba(59, 130, 246, 0.4);
+    }
+
+    /* Content Sections */
+    .content-sections {
+        display: flex;
+        flex-direction: column;
+        gap: 2rem;
+    }
+
+    .content-section {
+        animation: fadeIn 0.6s ease forwards;
+    }
+
+    .section-card {
+        background: #fff;
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        border: 1px solid rgba(0, 0, 0, 0.05);
+    }
+
+    .section-header {
+        padding: 1.25rem;
+        background: #f8fafc;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+    }
+
+    .section-header h3 {
+        color: #1e293b;
+        font-size: 1.25rem;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
+    .section-header h3 i {
+        color: #3b82f6;
+    }
+
+    .section-body {
+        padding: 2rem;
+    }
+
+    .section-title {
+        color: #1e293b;
+        font-size: 1.25rem;
+        font-weight: 600;
+        margin-bottom: 1.25rem;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
+    .section-title i {
+        color: #3b82f6;
+    }
+
+    /* Control Buttons - Improved visibility */
+    .control-buttons {
+        display: flex;
+        justify-content: center;
+        gap: 1.5rem;
+    }
+
+    .btn-control {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0.875rem 2rem;
+        font-size: 1.1rem;
+        font-weight: 600;
+        border-radius: 8px;
+        transition: all 0.2s ease;
+        cursor: pointer;
+        border: none;
+        gap: 0.75rem;
+        min-width: 200px;
+        letter-spacing: 0.5px;
+    }
+
+    .btn-control.start {
+        background: #10b981;
+        color: white;
+        box-shadow: 0 4px 6px rgba(16, 185, 129, 0.2);
+    }
+
+    .btn-control.start:hover {
+        background: #059669;
+        box-shadow: 0 6px 12px rgba(16, 185, 129, 0.3);
+        transform: translateY(-2px);
+    }
+
+    .btn-control.stop {
+        background: #ef4444;
+        color: white;
+        box-shadow: 0 4px 6px rgba(239, 68, 68, 0.2);
+    }
+
+    .btn-control.stop:hover {
+        background: #dc2626;
+        box-shadow: 0 6px 12px rgba(239, 68, 68, 0.3);
+        transform: translateY(-2px);
+    }
+
+    /* Upload Form */
+    .upload-form {
+        width: 100%;
+    }
+
+    .form-group {
+        margin-bottom: 1.5rem;
+    }
+
+    .form-label {
+        display: block;
+        margin-bottom: 0.75rem;
+        font-weight: 500;
+        color: #1e293b;
+        font-size: 1rem;
+    }
+
+    .form-input {
+        width: 100%;
+        padding: 0.875rem 1rem;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        background: #f8fafc;
+        color: #1e293b;
+        transition: border 0.2s ease;
+        font-size: 1rem;
+    }
+
+    .form-input:focus {
+        border-color: #3b82f6;
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+    }
+
+    .btn-submit {
+        width: 100%;
+        padding: 0.875rem;
+        background: #3b82f6;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-size: 1.1rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        letter-spacing: 0.5px;
+    }
+
+    .btn-submit:hover {
+        background: #2563eb;
+        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+        transform: translateY(-2px);
+    }
+
+    /* Summaries Grid */
+    .summaries-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+        gap: 1.5rem;
+    }
+
+    .summary-card {
+        background: #fff;
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        border: 1px solid rgba(0, 0, 0, 0.05);
+        display: flex;
+        flex-direction: column;
+    }
+
+    .summary-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 12px 24px rgba(0, 0, 0, 0.1);
+    }
+
+    .summary-header {
+        padding: 1.25rem;
+        background: #f8fafc;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .summary-title {
+        color: #1e293b;
+        font-weight: 600;
+        font-size: 1.1rem;
+        margin: 0;
+    }
+
+    .summary-date {
+        color: #64748b;
+        font-size: 0.8rem;
+    }
+
+    .summary-body {
+        padding: 1.25rem;
+        flex-grow: 1;
+    }
+
+    .summary-content {
+        margin-bottom: 1.25rem;
+    }
+
+    .content-label {
+        color: #64748b;
+        font-size: 0.875rem;
+        font-weight: 500;
+        margin-bottom: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .content-text {
+        color: #334155;
+        font-size: 0.95rem;
+        line-height: 1.6;
+    }
+
+    .action-list {
+        list-style: none;
+        padding: 0;
+    }
+
+    .action-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.5rem;
+        margin-bottom: 0.5rem;
+        color: #334155;
+        font-size: 0.95rem;
+    }
+
+    .action-item i {
+        color: #10b981;
+        margin-top: 0.2rem;
+    }
+
+    .summary-footer {
+        padding: 1rem 1.25rem;
+        background: #f8fafc;
+        border-top: 1px solid rgba(0, 0, 0, 0.05);
+        display: flex;
+        justify-content: flex-end;
+        gap: 0.75rem;
+    }
+
+    .btn-action {
+        padding: 0.5rem 1rem;
+        font-size: 0.875rem;
+        font-weight: 500;
+        border-radius: 6px;
+        transition: all 0.2s ease;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        text-decoration: none;
+    }
+
+    .btn-action.edit {
+        background: #f3f4f6;
+        border: 1px solid #e5e7eb;
+        color: #4b5563;
+    }
+
+    .btn-action.edit:hover {
+        background: #e5e7eb;
+        color: #1f2937;
+    }
+
+    .btn-action.delete {
+        background: #fee2e2;
+        border: 1px solid #fecaca;
+        color: #ef4444;
+    }
+
+    .btn-action.delete:hover {
+        background: #fecaca;
+        color: #b91c1c;
+    }
+
+    /* Empty State */
+    .empty-state {
+        grid-column: 1 / -1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 4rem 2rem;
+        background: #fff;
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        color: #64748b;
+    }
+
+    .empty-state i {
+        font-size: 3rem;
+        margin-bottom: 1rem;
+        opacity: 0.5;
+    }
+
+    /* Animations */
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes slideIn {
+        from { opacity: 0; transform: translateX(-20px); }
+        to { opacity: 1; transform: translateX(0); }
+    }
+
+    /* Responsive design improvements */
+    @media (max-width: 992px) {
+        .dashboard-container {
+            grid-template-columns: 1fr;
+        }
+
+        .sidebar {
+            transform: translateX(-100%);
+            width: 280px;
+        }
+
+        .sidebar.active {
+            transform: translateX(0);
+        }
+
+        .mobile-nav-toggle {
+            display: block;
+        }
+
+        .close-sidebar {
+            display: block;
+        }
+
+        .main-content {
+            margin-left: 0;
+            width: 100%;
+            padding: 4rem 1.5rem 1.5rem;
+        }
+
+        .greeting-card {
+            padding: 1.5rem;
+        }
+
+        .stats-container {
+            grid-template-columns: 1fr;
+        }
+
+        .control-buttons {
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .btn-control {
+            width: 100%;
+            max-width: 300px;
+        }
+
+        .summaries-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    /* Medium screens adjustment */
+    @media (min-width: 993px) and (max-width: 1200px) {
+        .summaries-grid {
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        }
+    }
+
+    /* Fix overlay/background issue */
+    @media (max-width: 992px) {
+        body.sidebar-open {
+            overflow: hidden;
+        }
+
+        .sidebar-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 99;
+            display: none;
+        }
+
+        .sidebar-overlay.active {
+            display: block;
+        }
+    }
+</style>
+
+<div class="sidebar-overlay" id="sidebarOverlay"></div>
+
 <script>
-  function editSummary(id) {
-    const summaries = {{ summaries|tojson }};
-    const item = summaries.find(s => s._id.$oid === id);
-    document.getElementById("editSummaryId").value = id;
-    document.getElementById("editSummaryText").value = item.summary;
-    new bootstrap.Modal(document.getElementById("editModal")).show();
-  }
+document.addEventListener('DOMContentLoaded', function() {
+    const sidebar = document.getElementById('sidebar');
+    const menuToggle = document.getElementById('menuToggle');
+    const sidebarOverlay = document.getElementById('sidebarOverlay');
+    const closeSidebar = document.getElementById('closeSidebar');
+    const navLinks = document.querySelectorAll('.nav-link');
+    const sections = document.querySelectorAll('.content-section');
+    
+    // Show/hide sidebar on mobile
+    menuToggle.addEventListener('click', function() {
+        sidebar.classList.add('active');
+        sidebarOverlay.classList.add('active');
+        document.body.classList.add('sidebar-open');
+    });
+    
+    // Close sidebar when clicking outside or on close button
+    function closeSidebarMenu() {
+        sidebar.classList.remove('active');
+        sidebarOverlay.classList.remove('active');
+        document.body.classList.remove('sidebar-open');
+    }
+    
+    closeSidebar.addEventListener('click', closeSidebarMenu);
+    sidebarOverlay.addEventListener('click', closeSidebarMenu);
+    
+    // Function to check which section is in view
+    function setActiveNavLink() {
+        const scrollPosition = window.scrollY;
+        
+        sections.forEach((section, index) => {
+            const sectionTop = section.offsetTop - 100;
+            const sectionBottom = sectionTop + section.offsetHeight;
+            
+            if (scrollPosition >= sectionTop && scrollPosition < sectionBottom) {
+                navLinks.forEach(link => link.classList.remove('active'));
+                if (index < navLinks.length - 1) { // Skip the logout link
+                    navLinks[index].classList.add('active');
+                }
+            }
+        });
+    }
+
+    // Click handler for navigation
+    navLinks.forEach(link => {
+        if (!link.classList.contains('logout-link')) {
+            link.addEventListener('click', function(e) {
+                e.preventDefault();
+                
+                navLinks.forEach(l => l.classList.remove('active'));
+                this.classList.add('active');
+                
+                const targetId = this.getAttribute('href');
+                const targetSection = document.querySelector(targetId);
+                
+                window.scrollTo({
+                    top: targetSection.offsetTop - 80,
+                    behavior: 'smooth'
+                });
+                
+                // Close sidebar on mobile after navigation
+                if (window.innerWidth <= 992) {
+                    closeSidebarMenu();
+                }
+            });
+        }
+    });
+    
+    // Initial check for active section
+    setActiveNavLink();
+    
+    // Update active section on scroll
+    window.addEventListener('scroll', setActiveNavLink);
+    
+    // Edit summary function
+    window.editSummary = function(summaryId) {
+        // Redirect to edit page or open modal
+        window.location.href = `/edit_summary/${summaryId}`;
+    };
+    
+    // Check recording status on page load
+    function checkRecordingStatus() {
+        fetch('/recording_status')
+            .then(response => response.json())
+            .then(data => {
+                const startButton = document.querySelector('.btn-control.start');
+                const stopButton = document.querySelector('.btn-control.stop');
+                
+                if (data.isRecording) {
+                    startButton.disabled = true;
+                    startButton.classList.add('disabled');
+                    stopButton.disabled = false;
+                    stopButton.classList.remove('disabled');
+                } else {
+                    startButton.disabled = false;
+                    startButton.classList.remove('disabled');
+                    stopButton.disabled = true;
+                    stopButton.classList.add('disabled');
+                }
+            })
+            .catch(error => console.error('Error checking recording status:', error));
+    }
+    
+    // Call initial recording status check
+    checkRecordingStatus();
+    
+    // Set up periodic status checking
+    setInterval(checkRecordingStatus, 5000);
+    
+    // Form validation
+    const uploadForm = document.querySelector('.upload-form');
+    if (uploadForm) {
+        uploadForm.addEventListener('submit', function(e) {
+            const fileInput = document.getElementById('audio_file');
+            if (fileInput && fileInput.files.length === 0) {
+                e.preventDefault();
+                alert('Please select an audio file to upload.');
+            }
+        });
+    }
+});
 </script>
-
-<hr class="text-light">
-
-<h3 class="text-center text-danger">Your Saved Summaries</h3>
-{% for s in summaries %}
-    <div class="summary-card">
-        <h4>{{ s["title"] }} <small class="text-muted">({{ s["timestamp"] }})</small></h4>
-        <p><strong>Summary:</strong> {{ s["summary"] }}</p>
-        <p><strong>Action Items:</strong></p>
-        <ul>
-            {% for item in s["action_items"] %}
-                <li>{{ item }}</li>
-            {% endfor %}
-        </ul>
-        <hr>
-    </div>
-{% else %}
-    <p class="text-light text-center">No summaries yet!</p>
-{% endfor %}
 {% endblock %}

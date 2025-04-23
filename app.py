@@ -23,10 +23,12 @@ recorder = RecordingManager()
 
 @app.route('/')
 def home():
-    return redirect(url_for('login'))
+    return render_template('main_dashboard.html')
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
+    if 'user_id' in session:
+        return redirect(url_for('dashboard'))
     if request.method == 'POST':
         username = request.form['username']
         password = request.form['password']
@@ -217,6 +219,11 @@ def delete_summary(summary_id):
     flash("🗑️ Summary deleted successfully!", "success")
     return redirect(url_for('dashboard'))
 
+@app.route('/get-started')
+def get_started():
+    if 'user_id' in session:
+        return redirect(url_for('dashboard'))
+    return redirect(url_for('register'))
 
 if __name__ == '__main__':
     if not os.path.exists('uploads'):

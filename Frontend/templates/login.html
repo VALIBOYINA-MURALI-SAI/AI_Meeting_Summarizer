@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}Login{% endblock %}
+{% block content %}
+<div class="auth-container">
+    <div class="auth-card">
+        <div class="auth-header">
+            <h2 class="auth-title">Login to Meeting Hub</h2>
+            <p class="auth-subtitle">Enter your credentials to access your account</p>
+        </div>
+        
+        <form method="POST" action="{{ url_for('login') }}" class="auth-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            
+            <div class="form-group">
+                <label for="username" class="form-label">Username</label>
+                <div class="input-group">
+                    <span class="input-group-text">
+                        <i class="bi bi-person-fill"></i>
+                    </span>
+                    <input type="text" class="form-control" id="username" name="username" required>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label for="password" class="form-label">Password</label>
+                <div class="input-group">
+                    <span class="input-group-text">
+                        <i class="bi bi-lock-fill"></i>
+                    </span>
+                    <input type="password" class="form-control" id="password" name="password" required>
+                </div>
+            </div>
+            
+            <button type="submit" class="btn btn-primary w-100 btn-lg">Login</button>
+            
+            {% if error %}
+                <div class="alert alert-danger mt-3">{{ error }}</div>
+            {% endif %}
+        </form>
+        
+        <div class="auth-action">
+            Don't have an account? <a href="{{ url_for('register') }}" class="auth-link">Register here</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

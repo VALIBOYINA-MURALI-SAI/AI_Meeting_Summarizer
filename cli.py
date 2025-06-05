@@ -9,7 +9,6 @@ import whisper
 import ffmpeg
 import queue
 import numpy as np
-import sounddevice as sd
 from scipy.io.wavfile import write
 from dotenv import load_dotenv
 from offline_summarizer import summarize_text_offline
@@ -37,46 +36,6 @@ def display_ticker():
         sys.stdout.write(f'\r🎙️ [INFO] Recording: {minutes:02d}:{seconds:02d}')
         sys.stdout.flush()
         time.sleep(1)
-
-def record_meeting(output_filename):
-    global stop_ticker
-    stop_ticker = False
-    ticker_thread = threading.Thread(target=display_ticker)
-    ticker_thread.start()
-
-    fs = 44100  # Sample rate
-    channels = 1
-    q = queue.Queue()
-
-    def callback(indata, frames, time_info, status):
-        if status:
-            print(f"⚠️ [WARNING] {status}", file=sys.stderr)
-        q.put(indata.copy())
-
-    try:
-        print("\n🎥 [INFO] Recording started. Press Ctrl+C to stop.")
-        with sd.InputStream(samplerate=fs, channels=channels, callback=callback):
-            recorded_frames = []
-            while True:
-                try:
-                    frame = q.get(timeout=1)
-                    recorded_frames.append(frame)
-                except queue.Empty:
-                    continue
-    except KeyboardInterrupt:
-        print("\n🛑 [INFO] Recording manually stopped.")
-    except Exception as e:
-        print(f"❌ [ERROR] Recording error: {e}")
-    finally:
-        stop_ticker = True
-        ticker_thread.join()
-
-        if recorded_frames:
-            audio_data = np.concatenate(recorded_frames, axis=0)
-            write(output_filename, fs, audio_data)
-            print(f"✅ [INFO] Recording saved to {output_filename}")
-        else:
-            print("⚠️ [WARNING] No audio recorded.")
 
 def transcribe_audio(filename):
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -128,19 +87,16 @@ def save_results_to_file(transcript, summary, action_items, output_path="meeting
 # At the bottom of cli.py, change the if __name__ block to:
 def main():
     if len(sys.argv) != 3:
-        print(f"⚠️ [USAGE] python {sys.argv[0]} [record|summarize] output.wav")
+        print(f"⚠️ [USAGE] python {sys.argv[0]} [summarize|transcribe] input.wav")
         sys.exit(1)
 
     action = sys.argv[1]
-    output_filename = sys.argv[2]
+    input_filename = sys.argv[2]
 
-    if action == "record":
-        record_meeting(output_filename)
-
-    elif action == "summarize":
+    if action == "summarize":
         try:
             print("🔍 Starting processing...")
-            transcript = transcribe_audio(output_filename)
+            transcript = transcribe_audio(input_filename)
             print("\n=== TRANSCRIPT ===\n")
             print(transcript[:] + "...\n")  # Print first 1000 chars to avoid flooding console
             summary = summarize_transcript(transcript)
@@ -164,12 +120,12 @@ def main():
         
     elif action == "transcribe":
         print("[INFO] Transcribing only...")
-        transcript = transcribe_audio(output_filename)
+        transcript = transcribe_audio(input_filename)
         with open("transcript.txt", "w", encoding="utf-8") as f:
             f.write(transcript)
         print("[INFO] Transcription complete and saved to transcript.txt")
     else:
-        print(f"⚠️ [ERROR] Invalid action. Usage: python {sys.argv[0]} [record|summarize] output.wav")
+        print(f"⚠️ [ERROR] Invalid action. Usage: python {sys.argv[0]} [summarize|transcribe] input.wav")
         sys.exit(1)
 
 if __name__ == "__main__":

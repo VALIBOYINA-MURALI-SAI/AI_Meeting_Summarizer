@@ -8,7 +8,6 @@ Thumbs.db
 *.mp3
 *.wav
 *.ogg
-*.txt
 *.json
 Hugging_Face.py
 download_punkt.py
